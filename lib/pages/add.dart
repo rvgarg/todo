@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,63 +24,59 @@ class AppPageState extends State<AddPage> {
         appBar: AppBar(
           title: Text('Add TODO'),
         ),
-        body: Form(
-          key: _key,
-          child: Stack(
-            children: [
-              Column(
+        body: ListView(
+          children: [
+            Form(
+              key: _key,
+              child: Column(
                 children: [
-                  TextFormField(
-                    controller: _title,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Title required';
-                      }
-                    },
-                    decoration: InputDecoration(labelText: 'Title'),
+                  Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: TextFormField(
+                      controller: _title,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Title is required !!';
+                        }
+                      },
+                      decoration: InputDecoration(labelText: 'Title'),
+                    ),
                   ),
-                  TextFormField(
-                    controller: _content,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Content is required';
-                      }
-                    },
-                    decoration: InputDecoration(labelText: 'Content'),
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                    expands: true,
-                  ),
-                  IconButton(
-                    onPressed: () => showPicker(),
-                    icon: Icon(Icons.image_search),
+                  Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: TextFormField(
+                      controller: _content,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Content is required !!';
+                        }
+                      },
+                      decoration: InputDecoration(labelText: 'Content'),
+                      maxLines: 5,
+                      keyboardType: TextInputType.multiline,
+                    ),
                   ),
                 ],
               ),
-              Align(
-                child: ElevatedButton(
-                  child: Text('SUBMIT'),
-                  onPressed: () {
-                    var path;
-                    _key.currentState!.validate();
-                    firebaseStorage
-                        .ref(_image.path)
-                        .putFile(_image)
-                        .whenComplete(() async {
-                      path = await firebaseStorage
-                          .ref(_image.path)
-                          .getDownloadURL();
-                    });
-                    Todo todo = Todo(
-                        title: _title.text.trim(),
-                        content: _content.text.trim(),
-                        imagePath: path);
-                    ListApi().addTodo(todo: todo, context: context);
-                  },
-                ),
-              )
-            ],
-          ),
+            ),
+            IconButton(onPressed: showPicker, icon: Icon(Icons.add_a_photo))
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            var path;
+            _key.currentState!.validate();
+            UploadTask task = firebaseStorage.ref(_image.path).putFile(_image);
+            path = await (await task).ref.getDownloadURL();
+
+            Todo todo = Todo(
+                title: _title.text.trim(),
+                content: _content.text.trim(),
+                uid: FirebaseAuth.instance.currentUser!.uid,
+                imagePath: path);
+            ListApi().addTodo(todo: todo, context: context);
+          },
+          child: Icon(Icons.save),
         ),
       );
 
@@ -117,7 +114,7 @@ class AppPageState extends State<AddPage> {
         .pickImage(source: ImageSource.camera, imageQuality: 50);
 
     setState(() {
-      _image = image as File;
+      _image = File(image!.path);
     });
   }
 
@@ -126,7 +123,7 @@ class AppPageState extends State<AddPage> {
         .pickImage(source: ImageSource.gallery, imageQuality: 50);
 
     setState(() {
-      _image = image as File;
+      _image = File(image!.path);
     });
   }
 }

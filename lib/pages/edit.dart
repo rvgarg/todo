@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,75 +20,80 @@ class EditPage extends StatefulWidget {
 class EditPageState extends State<EditPage> {
   final _key = GlobalKey<FormState>();
   var firebaseStorage = FirebaseStorage.instance;
-  late File _image;
+  File? _image;
 
   @override
   Widget build(BuildContext context) {
-    var _title = TextEditingController();
-    final _content = TextEditingController();
+    var _title = TextEditingController(text: widget.todo.title);
+    final _content = TextEditingController(text: widget.todo.content);
     return Scaffold(
       appBar: AppBar(
         title: Text('Add TODO'),
       ),
-      body: Form(
-        key: _key,
-        child: Stack(
-          children: [
-            Column(
+      body: ListView(
+        children: [
+          Form(
+            key: _key,
+            child: Column(
               children: [
-                TextFormField(
-                  controller: _title = TextEditingController(),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Title required';
-                    }
-                  },
-                  decoration: InputDecoration(labelText: 'Title'),
-                  initialValue: widget.todo.title,
+                Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: TextFormField(
+                    controller: _title,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Title required';
+                      }
+                    },
+                    decoration: InputDecoration(labelText: 'Title'),
+                  ),
                 ),
-                TextFormField(
-                  controller: _content,
-                  initialValue: widget.todo.content,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Content is required';
-                    }
-                  },
-                  decoration: InputDecoration(labelText: 'Content'),
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  expands: true,
+                Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: TextFormField(
+                    controller: _content,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Content is required';
+                      }
+                    },
+                    decoration: InputDecoration(labelText: 'Content'),
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                  ),
                 ),
-                IconButton(
-                  onPressed: () => showPicker(),
-                  icon: Icon(Icons.image_search),
-                ),
-                Image.network(widget.todo.imagePath),
               ],
             ),
-            Align(
-              child: ElevatedButton(
-                child: Text('UPDATE'),
-                onPressed: () {
-                  var path;
-                  _key.currentState!.validate();
-                  firebaseStorage
-                      .ref(_image.path)
-                      .putFile(_image)
-                      .whenComplete(() async {
-                    path =
-                        await firebaseStorage.ref(_image.path).getDownloadURL();
-                  });
-                  Todo todo = Todo(
-                      title: _title.text.trim(),
-                      content: _content.text.trim(),
-                      imagePath: path);
-                  ListApi().updateTodo(todo: todo, context: context);
-                },
-              ),
-            )
-          ],
-        ),
+          ),
+          IconButton(
+            onPressed: () => showPicker(),
+            icon: Icon(Icons.image_search),
+          ),
+          Image.network(widget.todo.imagePath),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          var path;
+          if (_image != null) {
+            print('save pressed');
+            _key.currentState!.validate();
+            UploadTask task =
+                firebaseStorage.ref(_image!.path).putFile(_image!);
+            path = await (await task).ref.getDownloadURL();
+
+            print(path);
+          }
+
+          Todo todo = Todo(
+              uid: FirebaseAuth.instance.currentUser!.uid,
+              title: _title.text.trim(),
+              content: _content.text.trim(),
+              imagePath: path ?? widget.todo.imagePath);
+          print(todo.toString());
+          ListApi().updateTodo(todo: todo, context: context);
+        },
+        child: Icon(Icons.save),
       ),
     );
   }
@@ -126,7 +132,8 @@ class EditPageState extends State<EditPage> {
         .pickImage(source: ImageSource.camera, imageQuality: 50);
 
     setState(() {
-      _image = image as File;
+      _image = File(image!.path);
+      print(image!.path);
     });
   }
 
@@ -135,7 +142,8 @@ class EditPageState extends State<EditPage> {
         .pickImage(source: ImageSource.gallery, imageQuality: 50);
 
     setState(() {
-      _image = image as File;
+      _image = File(image!.path);
+      print(image!.path);
     });
   }
 }
